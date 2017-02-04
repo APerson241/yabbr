@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>YABBR - Yet Another Backlog Burninator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="css/mw.css" rel="stylesheet" />
+    <link href="css/core.css" rel="stylesheet" />
+    <script src="js/script.js"></script>
+  </head>
+  <body>
+    <h1>YABBR &ndash; Yet Another Backlog Burninator</h1>
+    <nav><a href="https://tools.wmflabs.org/apersonbot/">Tools</a> &gt; <b>YABBR</b></nav>
+    <p>Burn down those backlogs!</p>
+    <div id="login-panel">
+      <div class="warningbox">Submit a token to start editing!</div>
+      <br />
+      <label for="edit-token">Paste <a href="https://en.wikipedia.org/w/api.php?action=query&meta=tokens">token</a> here:</label>
+      <input type="text" id="edit-token" class="mw-ui-input mw-ui-input-inline" />
+      <button id="submit-token" class="mw-ui-button mw-ui-progressive">Submit token</button>
+      <span id="edit-token-status"></span>
+    </div>
+    <div id="select-backlog">
+      Backlog:
+      <select>
+        <option value="Category:Pages with duplicate reference names">Pages with duplicate reference names</option>
+      </select>
+      <span id="backlog-size"></span>
+    </div>
+    <div id="page-controls">
+      <span id="current-page">
+        Current page:
+        <span id="current-page-name"></span>
+      </span>
+      <div id="control-buttons">
+        <button id="skip-page" class="mw-ui-button">Skip this page</button>
+        <button id="save-page" class="mw-ui-button mw-ui-progressive" disabled>Save page</button>
+      </div>
+      <div id="save-result"></div>
+    </div>
+    <div id="edit-panel"></div>
+    <pre id="page-text"></pre>
+    <footer>
+      <a href="https://en.wikipedia.org/wiki/User:Enterprisey" title="Enterprisey's user page on the English Wikipedia">Enterprisey</a> (<a href="https://en.wikipedia.org/wiki/User_talk:Enterprisey" title="Enterprisey's talk page on the English Wikipedia">talk!</a>) • <a href="https://github.com/APerson241/vote-history" title="Source code on GitHub">Source code</a> • <a href="https://github.com/APerson241/vote-history/issues" title="Issues on GitHub">Issues</a>
+</footer>
+  </body>
+</html>
