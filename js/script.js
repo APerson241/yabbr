@@ -61,7 +61,6 @@ document.addEventListener( "DOMContentLoaded", function() {
 
     function updateCategorySize() {
         apiFunctions.getCategorySize( globals.currentCat ).then( function ( count ) {
-            console.log(count);
             document.getElementById( "backlog-size" ).innerHTML = "(Size: " + count.toLocaleString() + " pages)";
         } );
     }
@@ -97,6 +96,7 @@ document.addEventListener( "DOMContentLoaded", function() {
                 "</span> <span class='ref-count'>(" + dupeRefs[dupeRefName].length +
                 " total references)</span><ul>";
             var ourDupeRefs = dupeRefs[dupeRefName];
+            var firstTextarea = true;
             for( var i = 0; i < ourDupeRefs.length; i++ ) {
                 if( ourDupeRefs[i].selfclosing ) {
 
@@ -111,9 +111,17 @@ document.addEventListener( "DOMContentLoaded", function() {
                     i = j - 1;
                 } else {
                     newInnerElementHtml += "<li><span class='vertical-align'>" +
-                        "<textarea class='mw-ui-input' data-refname='" +
+                        "<textarea class='mw-ui-input" +
+                        ( firstTextarea ? "" : " has-button" ) + "' data-refname='" +
                         dupeRefName + "' data-refnum='" + i + "'>" +
-                        escapeHtml( ourDupeRefs[i].ref ) + "</textarea></span></li>";
+                        escapeHtml( ourDupeRefs[i].ref ) + "</textarea>";
+                    if( firstTextarea ) {
+                        firstTextarea = false;
+                    } else {
+                        newInnerElementHtml += "<button class='mw-ui-button make-self-closing'>" +
+                            "Self-close</button>";
+                    }
+                    newInnerElementHtml += "</span></li>";
                 }
             }
             newInnerElementHtml += "</ul>";
@@ -121,6 +129,15 @@ document.addEventListener( "DOMContentLoaded", function() {
             listElement.appendChild( newInnerElement );
         } );
         document.getElementById( "edit-panel" ).appendChild( listElement );
+
+        var selfClosingButtons = document.getElementsByClassName( "make-self-closing" );
+        for( var i = 0; i < selfClosingButtons.length; i++ ) {
+            selfClosingButtons[i].addEventListener( "click", function ( event ) {
+                var textArea = event.target.previousSibling;
+                textArea.value = "<ref name=\"" + textArea.dataset.refname + "\" />";
+                document.getElementById( "save-page" ).disabled = false;
+            }.bind( this ) );
+        }
 
         var savePageButton = document.getElementById( "save-page" );
         savePageButton.disabled = true;
@@ -148,11 +165,26 @@ document.addEventListener( "DOMContentLoaded", function() {
                 apiFunctions.savePage( globals.currentPage, pageText,
                                        globals.editToken, "Fixing duplicate references with YABBR" )
                     .then( function ( response ) {
-                        console.log(response);
                         savePageButton.innerHTML = "Save page";
-                        document.getElementById( "save-result" ).innerHTML = response;
+                        var saveResult = document.getElementById( "save-result" );
+                        saveResult.innerHTML = "Result: ";
+                        try {
+                            console.log(response);
+                            response = JSON.parse( response );
+                            var articleTitle = response["edit"]["title"];
+                            var result = response["edit"]["result"];
+                            saveResult.innerHTML = "Result: <span class='edit-" + result.toLowerCase() + "'>" + result + "</span> (view <a href='https://en.wikipedia.org/wiki/" + encodeURIComponent( articleTitle ) + "'>article</a>";
+                            if( response["edit"]["result"] === "Success" ) {
+                                saveResult.innerHTML += " or <a href='https://en.wikipedia.org/w/index.php?title=" + articleTitle + "&diff=prev&oldid=" + response["edit"]["newrevid"] + "'>diff</a>";
+                            }
+                            saveResult.innerHTML += ")";
+                        } catch ( e ) {
+                            saveResult.innerHTML = "Error parsing server response";
+                            console.log(e);
+                        }
 
                         setTimeout( updateCategorySize, 500 );
+                        setTimeout( updateCategorySize, 1500 );
                         nextPage();
                     } )
             }.bind( this ) );
@@ -164,7 +196,7 @@ document.addEventListener( "DOMContentLoaded", function() {
         document.querySelectorAll( "#edit-panel textarea" ).forEach( function ( textArea ) {
             textArea.style.height = textArea.scrollHeight + "px";
             textArea.addEventListener( "input", function () {
-                document.getElementById( "save-page" ).disabled = !globals.editToken;
+                document.getElementById( "save-page" ).disabled = false;//!globals.editToken;
             } );
         } );
     }
@@ -240,7 +272,48 @@ document.addEventListener( "DOMContentLoaded", function() {
                     reject(e);
                 }
             } );
-        }
+        },
+
+        // OAuth stuff
+        doAuthorizationRedirectOld: function () {
+            var CONSUMER_TOKEN = "a38bdea381b2d3cb27c54c9224de4013";
+            var SECRET_TOKEN = "93e2426dda047c6ff646dd7d0897be3101d7522e";
+
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if ( xhr.readyState == XMLHttpRequest.DONE ) {
+                    console.log(xhr.response);
+                }
+            };
+            xhr.open( "GET", "https://meta.wikimedia.org/w/index.php?title=Special:OAuth/initiate" );
+            var params = {
+                "oauth_calllback": "oob",
+                "oauth_consumer_key": CONSUMER_TOKEN,
+                "oauth_version": "1.0"
+            };
+            params = Object.keys( params ).map( function ( key ) {
+                return encodeURIComponent( key ) + "=" +
+                    encodeURIComponent( params[key] );
+            } ).join( "&" );
+            xhr.send( params );
+        },
+        doAuthorizationRedirect: function () {
+            var xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if ( xhr.readyState == XMLHttpRequest.DONE ) {
+                    console.log(xhr.response);
+                }
+            };
+            xhr.open( 'GET', 'http://localhost:8000/cgi-bin/oauth.py', true );
+            xhr.setRequestHeader( "Content-Type","application/x-www-form-urlencoded" );
+            var params = "";
+            try{
+                xhr.send( params );
+            } catch( e ) {
+                console.log(e);
+                reject(e);
+            }
+        },
     };
 
     // Doesn't meet the Iterator protocol 'cause we need it async, because
@@ -279,10 +352,11 @@ document.addEventListener( "DOMContentLoaded", function() {
         };
     }
 
-    function makeWikilink( pageName ) {
+    function makeWikilink( pageName, linkLabel ) {
+        linkLabel = linkLabel || pageName;
         var link = document.createElement( "a" );
         link.href = "https://en.wikipedia.org/wiki/" + pageName;
-        link.appendChild( document.createTextNode( pageName ) );
+        link.appendChild( document.createTextNode( linkLabel ) );
         link.title = pageName + " on the English Wikipedia";
         return link;
     }
@@ -349,4 +423,6 @@ document.addEventListener( "DOMContentLoaded", function() {
 
     document.getElementById( "edit-token" ).disabled = false;
     document.getElementById( "submit-token" ).disabled = false;
+
+    //apiFunctions.doAuthorizationRedirect();
 } );

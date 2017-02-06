@@ -70,8 +70,11 @@ nav {
 }
 
 #save-result {
-    font-family: monospace;
-    font-size: 90%;
+    clear: right;
+}
+
+.edit-success {
+    color: green;
 }
 
 .ref-name {
@@ -90,4 +93,14 @@ nav {
     padding: 0.25em;
     min-height: 0;
     font-family: monospace;
+}
+
+#edit-panel textarea.has-button {
+    width: 83%;
+    display: inline;
+}
+
+#edit-panel button.make-self-closing {
+    font-size: 90%;
+    margin-left: 0.15em;
 }
