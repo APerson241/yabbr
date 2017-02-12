@@ -19,17 +19,23 @@ form = cgi.FieldStorage()
 #    print("Error! Token not provided.")
 #    sys.exit(0)
 
-wiki = wikitools.Wiki("https://en.wikipedia.org/w/api.php")
-wiki.login("Enterprisey", open("/home/daniel/Documents/GitHub/yabbr/cgi-bin/p.txt").read().strip())
-print(json.dumps(wikitools.Page(wiki, title=form["title"].value).edit(text=form["text"].value, summary=form["summary"].value)))
-sys.exit(0)
-params = dict(
-    action="edit",
-    title=form["title"].value,
-    text=form["text"].value,
-    summary=form["summary"].value,
-    token=urllib.quote(form["token"].value)
-)
+try:
+    wiki = wikitools.Wiki("https://en.wikipedia.org/w/api.php")
+    password = open("/home/daniel/Documents/GitHub/yabbr/cgi-bin/p.txt").read().strip()
+    wiki.login("Enterprisey", password)
+    page = wikitools.Page(wiki, title=form["title"].value)
+    result = page.edit(text=form["text"].value, summary=form["summary"].value)
+    result_string = json.dumps(result)
+    print(result_string)
+except Exception as e:
+    print(e)
+#params = dict(
+#    action="edit",
+#    title=form["title"].value,
+#    text=form["text"].value,
+#    summary=form["summary"].value,
+#    token=urllib.quote(form["token"].value)
+#)
 #headers = dict()
 #headers["Content-Type"] = "application/x-www-form-urlencoded"
 #result = requests.post("https://en.wikipedia.org/w/api.php", params, headers=headers)

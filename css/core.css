@@ -95,6 +95,10 @@ nav {
     font-family: monospace;
 }
 
+#edit-panel .display-self-closing {
+    font-style: italic;
+}
+
 #edit-panel textarea.has-button {
     width: 83%;
     display: inline;

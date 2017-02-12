@@ -66,14 +66,29 @@ document.addEventListener( "DOMContentLoaded", function() {
     }
 
     function loadDupeRefNamesView( pageText ) {
-        var refMatches = pageText.match(/<ref[\s\S]*?(?:<\/ref>|\/>)/g );
+        var refElementRe = /<ref[\s\S]*?(?:<\/ref>|\/>)/g;
+        var refMatch;
+        var OPEN_TAG = new RegExp( "^<ref\\s+name\\s*=\\s*(?:\"|\')?([^>\\/\\\\\"\']+)(?:\"|\')?\\s*(\\/?)>" );
+        var CONTEXT_LENGTH = 100;
         var refs = [];
-        refMatches.forEach( function ( ref ) {
-            var match = /^<ref\s+name\s*=\s*"?([^>\/\\"']+)"?\s*(\/?)>/.exec( ref );
+        while( refMatch = refElementRe.exec( pageText ) ) {
+            var refMatchText = refMatch[0];
+            var refMatchStart = refMatch.index;
+            var refMatchEnd = refMatch.index + refMatchText.length;
+            var match = OPEN_TAG.exec( refMatchText );
             if( match && match[1] && match[1].trim().length ) {
-                refs.push( { "ref": ref, "name": match[1].trim(), "selfclosing": !!match[2] } );
+                refs.push( {
+                    "ref": refMatchText,
+                    "name": match[1].trim(),
+                    "selfclosing": !!match[2],
+                    "context": [
+                        pageText.substring( Math.max( 0, refMatchStart - CONTEXT_LENGTH ), refMatchStart ),
+                        pageText.substring( refMatchEnd, Math.min( refMatchEnd + CONTEXT_LENGTH, pageText.length - 1 ) )
+                    ]
+                } );
             }
-        } );
+        }
+
         var refNameTallies = {};
         refs.forEach( function ( refObject ) {
             if( refObject.name && !refObject.selfclosing ) {
@@ -89,6 +104,13 @@ document.addEventListener( "DOMContentLoaded", function() {
 
         document.getElementById( "edit-panel" ).innerHTML = "";
         var listElement = document.createElement( "ul" );
+
+        function makeRefListItemHtml ( refname, refnum, firstTextarea ) {
+            return "<span class='vertical-align'><textarea class='mw-ui-input" +
+                ( firstTextarea ? "" : " has-button" ) + "' data-refname='" +
+                refname + "' data-refnum='" + refnum + "'>" +
+                escapeHtml( dupeRefs[refname][refnum].ref ) + "</textarea>";
+        }
         Object.keys( dupeRefs ).forEach( function ( dupeRefName ) {
             var newInnerElement = document.createElement( "li" );
             var newInnerElementHtml = "";
@@ -107,14 +129,12 @@ document.addEventListener( "DOMContentLoaded", function() {
 
                     newInnerElementHtml += "<li>(" + ( j - i ) +
                         " self-closing reference" + ( ( j - i === 1 ) ? "" : "s" ) +
-                        ")</li>";
+                        " - <a class='display-self-closing' href='#'>show</a>)</li>";
                     i = j - 1;
                 } else {
-                    newInnerElementHtml += "<li><span class='vertical-align'>" +
-                        "<textarea class='mw-ui-input" +
-                        ( firstTextarea ? "" : " has-button" ) + "' data-refname='" +
-                        dupeRefName + "' data-refnum='" + i + "'>" +
-                        escapeHtml( ourDupeRefs[i].ref ) + "</textarea>";
+                    newInnerElementHtml += "<li>";
+                    newInnerElementHtml += makeRefListItemHtml( dupeRefName, i, firstTextarea );
+
                     if( firstTextarea ) {
                         firstTextarea = false;
                     } else {
@@ -129,6 +149,49 @@ document.addEventListener( "DOMContentLoaded", function() {
             listElement.appendChild( newInnerElement );
         } );
         document.getElementById( "edit-panel" ).appendChild( listElement );
+
+        var displaySelfClosing = document.getElementsByClassName( "display-self-closing" );
+        for( var i = 0; i < displaySelfClosing.length; i++ ) {
+            displaySelfClosing[i].addEventListener( "click", function ( event ) {
+                var listItem = event.target.parentNode;
+                var startingRefnum = 0;
+                var endingRefnum = 0;
+
+                if( listItem.previousSibling ) {
+                    var prevTextarea = listItem.previousSibling.childNodes[0].childNodes[0];
+                    var startingRefnum = parseInt( prevTextarea.getAttribute( "data-refnum" ) ) + 1;
+                    var refname = prevTextarea.getAttribute( "data-refname" );
+                }
+
+                if( listItem.nextSibling ) {
+                    var nextTextarea = listItem.nextSibling.childNodes[0].childNodes[0];
+                    var endingRefnum = parseInt( nextTextarea.getAttribute( "data-refnum" ) ) - 1;
+                    var refname = nextTextarea.getAttribute( "data-refname" );
+                }
+
+                if( !refname ) {
+                    console.log("...no refname, sorry");
+                    event.target.disabled = true;
+                    event.preventDefault();
+                    return;
+                }
+                var endingRefnum = ( endingRefnum === 0 ) ? dupeRefs[refname].length - 1 : endingRefnum;
+
+                var textareas = document.createDocumentFragment();
+                for( var j = startingRefnum; j <= endingRefnum; j++ ) {
+                    var currListItem = document.createElement( "li" );
+                    currListItem.innerHTML = makeRefListItemHtml( refname, j, false );
+                    textareas.appendChild( currListItem );
+                }
+                listItem.innerHTML = "";
+                listItem.appendChild( textareas );
+
+                // Definition at the end of loadDupeRefNamesView
+                updateTextAreasStyleAndListeners();
+
+                event.preventDefault();
+            }.bind( this ) );
+        }
 
         var selfClosingButtons = document.getElementsByClassName( "make-self-closing" );
         for( var i = 0; i < selfClosingButtons.length; i++ ) {
@@ -155,10 +218,16 @@ document.addEventListener( "DOMContentLoaded", function() {
                 document.querySelectorAll( "#edit-panel textarea" ).forEach( function ( textArea ) {
                     var refName = textArea.dataset.refname;
                     var refNum = textArea.dataset.refnum;
+                    var ref = dupeRefs[refName][refNum];
 
                     // Get the original text of this ref in the page text
-                    var originalText = dupeRefs[refName][refNum].ref;
-                    pageText = pageText.replace( originalText, textArea.value );
+                    var originalRef = ref.ref;
+
+                    // Add context, so if two refs are exactly the same we get the right one
+                    var originalText = ref.context[0] + originalRef + ref.context[1];
+                    var newText = ref.context[0] + textArea.value + ref.context[1];
+
+                    pageText = pageText.replace( originalText, newText );
                 } );
 
                 // Save our changes to the page text
@@ -192,13 +261,16 @@ document.addEventListener( "DOMContentLoaded", function() {
 
         function enableSavePageButton () { document.getElementById( "save-page" ).disabled = false; }
 
-        // Make the text areas taller
-        document.querySelectorAll( "#edit-panel textarea" ).forEach( function ( textArea ) {
-            textArea.style.height = textArea.scrollHeight + "px";
-            textArea.addEventListener( "input", function () {
-                document.getElementById( "save-page" ).disabled = false;//!globals.editToken;
+        // Make the text areas taller and give them text listeners
+        function updateTextAreasStyleAndListeners() {
+            document.querySelectorAll( "#edit-panel textarea" ).forEach( function ( textArea ) {
+                textArea.style.height = textArea.scrollHeight + "px";
+                textArea.addEventListener( "input", function () {
+                    document.getElementById( "save-page" ).disabled = false;//!globals.editToken;
+                } );
             } );
-        } );
+        }
+        updateTextAreasStyleAndListeners();
     }
 
     var apiFunctions = {
