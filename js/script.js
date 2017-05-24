@@ -105,6 +105,18 @@ document.addEventListener( "DOMContentLoaded", function() {
             }
         } );
 
+        if( Object.keys( dupeRefs ).length === 0 ) {
+            document.getElementById( "edit-panel" ).innerHTML = "<div class='error'>The duplicate reference problem on this page isn't fixable! Possible causes: <ul><li>The parser couldn't find the duplicate references</li><li>One of the duplicate references is inside a template, so we can't modify it</li></ul></div>";
+            return;
+        }
+
+        // Flag references with duplicated texts, not just names
+        var matchTexts = [];
+        var hasDuplicateMatchText = matchTexts.indexOf( refMatchText ) !== -1;
+        if( !hasDuplicateMatchText ) {
+            matchTexts.push( refMatchText );
+        }
+
         document.getElementById( "edit-panel" ).innerHTML = "";
         var listElement = document.createElement( "ul" );
 
@@ -122,6 +134,7 @@ document.addEventListener( "DOMContentLoaded", function() {
                 " total references)</span><ul>";
             var ourDupeRefs = dupeRefs[dupeRefName];
             var firstTextarea = true;
+            var allMatchTexts = [];
             for( var i = 0; i < ourDupeRefs.length; i++ ) {
                 if( ourDupeRefs[i].selfclosing ) {
 
@@ -140,9 +153,25 @@ document.addEventListener( "DOMContentLoaded", function() {
 
                     if( firstTextarea ) {
                         firstTextarea = false;
+
+                        // We always need to check subsequent full texts against the first one
+                        allMatchTexts.push( ourDupeRefs[i].ref );
                     } else {
-                        newInnerElementHtml += "<button class='mw-ui-button make-self-closing'>" +
+                        newInnerElementHtml += "<div class='self-closing-container'>";
+                        allMatchTexts.forEach(console.log);
+                        console.log(allMatchTexts.length);
+                        console.log(ourDupeRefs[i].ref);
+                        var isDuplicate = allMatchTexts.indexOf( ourDupeRefs[i].ref ) !== -1;
+                        console.log(allMatchTexts.indexOf( ourDupeRefs[i].ref ) + " => " + isDuplicate);
+                        newInnerElementHtml += "<button class='mw-ui-button " +
+                            ( isDuplicate ? "mw-ui-progressive " : "" ) + "make-self-closing'>" +
                             "Self-close</button>";
+                        if( isDuplicate ) {
+                            newInnerElementHtml += "<br /><span class='duplicate-notice'>Duplicated!</span>";
+                        } else {
+                            allMatchTexts.push( ourDupeRefs[i].ref );
+                        }
+                        newInnerElementHtml += "</div>";
                     }
                     newInnerElementHtml += "</span></li>";
                 }
@@ -199,9 +228,10 @@ document.addEventListener( "DOMContentLoaded", function() {
         var selfClosingButtons = document.getElementsByClassName( "make-self-closing" );
         for( var i = 0; i < selfClosingButtons.length; i++ ) {
             selfClosingButtons[i].addEventListener( "click", function ( event ) {
-                var textArea = event.target.previousSibling;
+                var textArea = event.target.parentElement.previousSibling;
                 textArea.value = "<ref name=\"" + textArea.dataset.refname + "\" />";
                 document.getElementById( "save-page" ).disabled = false;
+                event.target.disabled = true;
             }.bind( this ) );
         }
 

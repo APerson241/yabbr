@@ -104,7 +104,22 @@ nav {
     display: inline;
 }
 
+#edit-panel div.self-closing-container {
+    display: inline-block;
+    vertical-align: middle;
+    padding: 0.1em;
+}
+
 #edit-panel button.make-self-closing {
     font-size: 90%;
     margin-left: 0.15em;
+}
+
+#edit-panel span.duplicate-notice {
+    font-size: 90%;
+    font-style: italic;
+}
+
+#edit-panel div.error ul {
+    margin-top: 0.3em;
 }
