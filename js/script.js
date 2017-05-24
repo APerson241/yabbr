@@ -61,7 +61,10 @@ document.addEventListener( "DOMContentLoaded", function() {
 
     function updateCategorySize() {
         apiFunctions.getCategorySize( globals.currentCat ).then( function ( count ) {
-            document.getElementById( "backlog-size" ).innerHTML = "(Size: " + count.toLocaleString() + " pages)";
+            var backlogSize = document.getElementById( "backlog-size" );
+            backlogSize.innerHTML = "(Size: ";
+            backlogSize.appendChild( makeWikilink( globals.currentCat, count.toLocaleString() + " pages" ) );
+            backlogSize.innerHTML += ")";
         } );
     }
 
