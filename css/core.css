@@ -61,24 +61,65 @@ nav {
     float: right;
 }
 
+#save-indicator {
+    padding: .5em 1em;
+    border-radius: 2px;
+    border: 1px solid #a2a9b1;
+    font-weight: normal;
+    vertical-align: middle;
+    color: #222;
+    -webkit-transition: background-color 0.25s, font-weight 0.25s;
+    transition: background-color 0.25s, font-weight 0.25s;
+}
+
+#save-indicator.active {
+    background-color: #eaf3ff;
+    font-weight: bold;
+}
+
 #page-controls {
     vertical-align: middle;
 }
 
 #current-page {
     vertical-align: middle;
+    padding: .5em 0;
+    float: left;
 }
 
-#save-result {
-    clear: right;
+#clear-both {
+    clear: both;
 }
 
-.edit-success {
-    color: green;
+#save-results {
+    font-size: 90%;
+    margin-top: 0.25em;
+}
+
+.edit-progress {
+    border: thin gray solid;
+    margin: 0 0.1em;
+    padding: 0.1em;
+}
+
+.edit-progress.pending {
+    background-color: #DDD;
+}
+
+.edit-progress.success {
+    background-color: #CFC;
+}
+
+.edit-progress.failure {
+    background-color: #FCC;
 }
 
 .ref-name {
     font-family: monospace;
+}
+
+#edit-panel ul {
+    margin: 0.25em 0;
 }
 
 #edit-panel span.vertical-align {
@@ -118,8 +159,4 @@ nav {
 #edit-panel span.duplicate-notice {
     font-size: 90%;
     font-style: italic;
-}
-
-#edit-panel div.error ul {
-    margin-top: 0.3em;
 }

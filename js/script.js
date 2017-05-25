@@ -3,7 +3,8 @@ document.addEventListener( "DOMContentLoaded", function() {
         "currentCat": "",
         "currentPage": "",
         "iterator": "",
-        "editToken": ""
+        "editToken": "",
+        "pendingEdits": 0
     };
 
     // Event listeners
@@ -158,18 +159,15 @@ document.addEventListener( "DOMContentLoaded", function() {
                         allMatchTexts.push( ourDupeRefs[i].ref );
                     } else {
                         newInnerElementHtml += "<div class='self-closing-container'>";
-                        allMatchTexts.forEach(console.log);
-                        console.log(allMatchTexts.length);
-                        console.log(ourDupeRefs[i].ref);
-                        var isDuplicate = allMatchTexts.indexOf( ourDupeRefs[i].ref ) !== -1;
-                        console.log(allMatchTexts.indexOf( ourDupeRefs[i].ref ) + " => " + isDuplicate);
+                        var spacelessRef = ourDupeRefs[i].ref.replace( /\s/g, "" );
+                        var isDuplicate = allMatchTexts.indexOf( spacelessRef ) !== -1;
                         newInnerElementHtml += "<button class='mw-ui-button " +
                             ( isDuplicate ? "mw-ui-progressive " : "" ) + "make-self-closing'>" +
                             "Self-close</button>";
                         if( isDuplicate ) {
                             newInnerElementHtml += "<br /><span class='duplicate-notice'>Duplicated!</span>";
                         } else {
-                            allMatchTexts.push( ourDupeRefs[i].ref );
+                            allMatchTexts.push( spacelessRef );
                         }
                         newInnerElementHtml += "</div>";
                     }
@@ -263,23 +261,38 @@ document.addEventListener( "DOMContentLoaded", function() {
                     pageText = pageText.replace( originalText, newText );
                 } );
 
+                var saveIndicator = document.getElementById( "save-indicator" );
+                globals.pendingEdits++;
+                saveIndicator.textContent = globals.pendingEdits;
+                saveIndicator.className = "active";
+
+                var editProgressElement = document.createElement( "span" );
+                editProgressElement.className = "edit-progress pending";
+                editProgressElement.textContent = "Saving " + globals.currentPage + "...";
+                var editProgressContainer = document.getElementById( "save-results" );
+                editProgressContainer.insertBefore( editProgressElement, editProgressContainer.firstChild );
+
+                nextPage();
+                savePageButton.innerHTML = "Save page";
+
                 // Save our changes to the page text
                 apiFunctions.savePage( globals.currentPage, pageText,
                                        globals.editToken, "Fixing duplicate references with YABBR" )
                     .then( function ( response ) {
-                        savePageButton.innerHTML = "Save page";
-                        var saveResult = document.getElementById( "save-result" );
-                        saveResult.innerHTML = "Result: ";
                         try {
-                            console.log(response);
                             response = JSON.parse( response );
                             var articleTitle = response["edit"]["title"];
                             var result = response["edit"]["result"];
-                            saveResult.innerHTML = "Result: <span class='edit-" + result.toLowerCase() + "'>" + result + "</span> (view <a href='https://en.wikipedia.org/wiki/" + encodeURIComponent( articleTitle ) + "'>article</a>";
+                            editProgressElement.innerHTML = "Edit to <a href='https://en.wikipedia.org/wiki/" + encodeURIComponent( articleTitle ) + "'>" + articleTitle + "</a> &rarr; " + result + "</span>";
                             if( response["edit"]["result"] === "Success" ) {
-                                saveResult.innerHTML += " or <a href='https://en.wikipedia.org/w/index.php?title=" + articleTitle + "&diff=prev&oldid=" + response["edit"]["newrevid"] + "'>diff</a>";
+                                editProgressElement.innerHTML += " (<a href='https://en.wikipedia.org/w/index.php?title=" + articleTitle + "&diff=prev&oldid=" + response["edit"]["newrevid"] + "'>diff</a>)";
+                                editProgressElement.className = "edit-progress success";
+                            } else {
+                                editProgressElement.className = "edit-progress failure";
                             }
-                            saveResult.innerHTML += ")";
+                            globals.pendingEdits--;
+                            saveIndicator.textContent = globals.pendingEdits;
+                            saveIndicator.className = ( globals.pendingEdits > 0 ) ? "active" : "";
                         } catch ( e ) {
                             saveResult.innerHTML = "Error parsing server response";
                             console.log(e);
@@ -287,7 +300,6 @@ document.addEventListener( "DOMContentLoaded", function() {
 
                         setTimeout( updateCategorySize, 500 );
                         setTimeout( updateCategorySize, 1500 );
-                        nextPage();
                     } )
             }.bind( this ) );
         }.bind( this ) );
