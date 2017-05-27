@@ -33,6 +33,20 @@ nav {
     font-size: smaller;
 }
 
+.collapse {
+    color: #00e;
+    cursor: pointer;
+}
+
+.collapse:hover {
+    color: #3232f1;
+    text-decoration: underline;
+}
+
+.collapse:active  {
+    color: #e00;
+}
+
 .errorbox,.warningbox,.successbox{border:1px solid;padding:.5em 1em;margin-bottom:1em;display:-moz-inline-block;display:inline-block;zoom:1;*display:inline}
 
 .warningbox {
@@ -55,6 +69,10 @@ nav {
     font-family: monospace;
     font-size: 90%;
     width: 25em;
+}
+
+#options {
+    margin-bottom: 1em;
 }
 
 #control-buttons {

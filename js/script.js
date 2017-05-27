@@ -26,6 +26,13 @@ document.addEventListener( "DOMContentLoaded", function() {
         document.getElementById( "login-panel" ).removeChild( document.querySelector( "#login-panel br" ) );
     } );
 
+    document.getElementById( "options-collapse" ).addEventListener( "click", function ( event ) {
+        var optionsDiv = document.getElementById( "options" );
+        optionsDiv.style.display = ( optionsDiv.style.display === "none" ) ? "block" : "none";
+        event.target.textContent = ( event.target.textContent === "show options" )
+            ? "hide options" : "show options";
+    } );
+
     document.querySelector( "#select-backlog select" ).addEventListener( "change", function () {
         if( !this.value.startsWith( "Category:" ) ) {
             document.getElementById( "backlog-size" ).innerHTML = "";
@@ -48,16 +55,28 @@ document.addEventListener( "DOMContentLoaded", function() {
     } );
 
     function nextPage() {
-        globals.iterator.next().then( function ( nextPage ) {
+        function handleNextPage( nextPage ) {
             globals.currentPage = nextPage;
             var pageNameElement = document.getElementById( "current-page-name" )
-            pageNameElement.innerHTML = "";
+            if( pageNameElement.firstChild ) {
+                pageNameElement.removeChild( pageNameElement.firstChild ); // it only has the wikilink in it
+            }
             pageNameElement.appendChild( makeWikilink( globals.currentPage ) );
             apiFunctions.getPageText( globals.currentPage ).then( function ( pageText ) {
-                loadDupeRefNamesView( pageText );
-                document.getElementById( "skip-page" ).disabled = false;
+                var loadStatus = loadDupeRefNamesView( pageText );
+                if( !loadStatus && document.getElementById( "skip-unfixable" ).checked ) {
+
+                    // If the load failed and the options say to skip unfixable
+                    // (aka unloadable) pages, recurse on the next page we get
+                    // from the iterator
+                    globals.iterator.next().then( handleNextPage );
+                } else {
+                    document.getElementById( "skip-page" ).disabled = false;
+                }
             } );
-        } );
+        };
+
+        globals.iterator.next().then( handleNextPage );
     }
 
     function updateCategorySize() {
@@ -69,6 +88,11 @@ document.addEventListener( "DOMContentLoaded", function() {
         } );
     }
 
+    /*
+     * Returns true on success and false on failure. If the return value is
+     * false, nextPage will skip to the next page (if the appropriate option
+     * is enabled).
+     */
     function loadDupeRefNamesView( pageText ) {
         var refElementRe = /<ref[\s\S]*?(?:<\/ref>|\/>)/g;
         var refMatch;
@@ -108,7 +132,7 @@ document.addEventListener( "DOMContentLoaded", function() {
 
         if( Object.keys( dupeRefs ).length === 0 ) {
             document.getElementById( "edit-panel" ).innerHTML = "<div class='error'>The duplicate reference problem on this page isn't fixable! Possible causes: <ul><li>The parser couldn't find the duplicate references</li><li>One of the duplicate references is inside a template, so we can't modify it</li></ul></div>";
-            return;
+            return false;
         }
 
         // Flag references with duplicated texts, not just names
@@ -135,7 +159,10 @@ document.addEventListener( "DOMContentLoaded", function() {
                 " total references)</span><ul>";
             var ourDupeRefs = dupeRefs[dupeRefName];
             var firstTextarea = true;
+
+            // Holds full texts for duplicate checking on those
             var allMatchTexts = [];
+
             for( var i = 0; i < ourDupeRefs.length; i++ ) {
                 if( ourDupeRefs[i].selfclosing ) {
 
@@ -167,6 +194,8 @@ document.addEventListener( "DOMContentLoaded", function() {
                         if( isDuplicate ) {
                             newInnerElementHtml += "<br /><span class='duplicate-notice'>Duplicated!</span>";
                         } else {
+
+                            // Add this ref to the list so we can check future refs against it
                             allMatchTexts.push( spacelessRef );
                         }
                         newInnerElementHtml += "</div>";
@@ -180,6 +209,7 @@ document.addEventListener( "DOMContentLoaded", function() {
         } );
         document.getElementById( "edit-panel" ).appendChild( listElement );
 
+        // Event listeners for "(1 self-closing reference - show)"
         var displaySelfClosing = document.getElementsByClassName( "display-self-closing" );
         for( var i = 0; i < displaySelfClosing.length; i++ ) {
             displaySelfClosing[i].addEventListener( "click", function ( event ) {
@@ -193,7 +223,7 @@ document.addEventListener( "DOMContentLoaded", function() {
                     var refname = prevTextarea.getAttribute( "data-refname" );
                 }
 
-                if( listItem.nextSibling ) {
+                if( !refname && listItem.nextSibling ) {
                     var nextTextarea = listItem.nextSibling.childNodes[0].childNodes[0];
                     var endingRefnum = parseInt( nextTextarea.getAttribute( "data-refnum" ) ) - 1;
                     var refname = nextTextarea.getAttribute( "data-refname" );
@@ -316,6 +346,9 @@ document.addEventListener( "DOMContentLoaded", function() {
             } );
         }
         updateTextAreasStyleAndListeners();
+
+        // Successful display happened!
+        return true;
     }
 
     var apiFunctions = {
@@ -433,11 +466,16 @@ document.addEventListener( "DOMContentLoaded", function() {
         },
     };
 
-    // Doesn't meet the Iterator protocol 'cause we need it async, because
-    // sometimes we need to make an API call in next()
+    /*
+     * Caution: because we sometimes need to make an API call in next(), the
+     * whole thing has to be async, so the CategoryIterator doesn't meet the
+     * Iterator protocol.
+     */
     function CategoryIterator( name ) {
         this.name = name;
         this.index = 0;
+
+        // Category member objects from the API responses
         this.rawMembers = [];
 
         this.next = function () {
