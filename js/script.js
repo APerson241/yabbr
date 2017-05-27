@@ -4,7 +4,8 @@ document.addEventListener( "DOMContentLoaded", function() {
         "currentPage": "",
         "iterator": "",
         "editToken": "",
-        "pendingEdits": 0
+        "pendingEdits": 0,
+        "numSessionEdits": 0
     };
 
     // Event listeners
@@ -33,6 +34,11 @@ document.addEventListener( "DOMContentLoaded", function() {
             ? "hide options" : "show options";
     } );
 
+    document.getElementById( "save-indicator" ).addEventListener( "click", function () {
+        var saveResults = document.getElementById( "save-results" );
+        saveResults.style.display = ( saveResults.style.display === "none" ) ? "block" : "none";
+    } );
+
     document.querySelector( "#select-backlog select" ).addEventListener( "change", function () {
         if( !this.value.startsWith( "Category:" ) ) {
             document.getElementById( "backlog-size" ).innerHTML = "";
@@ -57,9 +63,9 @@ document.addEventListener( "DOMContentLoaded", function() {
     function nextPage() {
         function handleNextPage( nextPage ) {
             globals.currentPage = nextPage;
-            var pageNameElement = document.getElementById( "current-page-name" )
-            if( pageNameElement.firstChild ) {
-                pageNameElement.removeChild( pageNameElement.firstChild ); // it only has the wikilink in it
+            var pageNameElement = document.getElementById( "current-page-name" );
+            while( pageNameElement.firstChild ) {
+                pageNameElement.removeChild( pageNameElement.firstChild );
             }
             pageNameElement.appendChild( makeWikilink( globals.currentPage ) );
             apiFunctions.getPageText( globals.currentPage ).then( function ( pageText ) {
@@ -74,7 +80,7 @@ document.addEventListener( "DOMContentLoaded", function() {
                     document.getElementById( "skip-page" ).disabled = false;
                 }
             } );
-        };
+        }
 
         globals.iterator.next().then( handleNextPage );
     }
@@ -99,7 +105,7 @@ document.addEventListener( "DOMContentLoaded", function() {
         var OPEN_TAG = new RegExp( "^<ref\\s+name\\s*=\\s*(?:\"|\')?([^>\\/\\\\\"\']+)(?:\"|\')?\\s*(\\/?)>" );
         var CONTEXT_LENGTH = 100;
         var refs = [];
-        while( refMatch = refElementRe.exec( pageText ) ) {
+        while( refMatch = refElementRe.exec( pageText ), refMatch ) {
             var refMatchText = refMatch[0];
             var refMatchStart = refMatch.index;
             var refMatchEnd = refMatch.index + refMatchText.length;
@@ -211,31 +217,31 @@ document.addEventListener( "DOMContentLoaded", function() {
 
         // Event listeners for "(1 self-closing reference - show)"
         var displaySelfClosing = document.getElementsByClassName( "display-self-closing" );
-        for( var i = 0; i < displaySelfClosing.length; i++ ) {
+        for( let i = 0; i < displaySelfClosing.length; i++ ) {
             displaySelfClosing[i].addEventListener( "click", function ( event ) {
                 var listItem = event.target.parentNode;
                 var startingRefnum = 0;
                 var endingRefnum = 0;
+                var refname = "";
 
                 if( listItem.previousSibling ) {
                     var prevTextarea = listItem.previousSibling.childNodes[0].childNodes[0];
-                    var startingRefnum = parseInt( prevTextarea.getAttribute( "data-refnum" ) ) + 1;
-                    var refname = prevTextarea.getAttribute( "data-refname" );
+                    startingRefnum = parseInt( prevTextarea.getAttribute( "data-refnum" ) ) + 1;
+                    refname = prevTextarea.getAttribute( "data-refname" );
                 }
 
                 if( !refname && listItem.nextSibling ) {
                     var nextTextarea = listItem.nextSibling.childNodes[0].childNodes[0];
-                    var endingRefnum = parseInt( nextTextarea.getAttribute( "data-refnum" ) ) - 1;
-                    var refname = nextTextarea.getAttribute( "data-refname" );
+                    endingRefnum = parseInt( nextTextarea.getAttribute( "data-refnum" ) ) - 1;
+                    refname = nextTextarea.getAttribute( "data-refname" );
                 }
 
                 if( !refname ) {
-                    console.log("...no refname, sorry");
                     event.target.disabled = true;
                     event.preventDefault();
                     return;
                 }
-                var endingRefnum = ( endingRefnum === 0 ) ? dupeRefs[refname].length - 1 : endingRefnum;
+                endingRefnum = ( endingRefnum === 0 ) ? dupeRefs[refname].length - 1 : endingRefnum;
 
                 var textareas = document.createDocumentFragment();
                 for( var j = startingRefnum; j <= endingRefnum; j++ ) {
@@ -254,7 +260,7 @@ document.addEventListener( "DOMContentLoaded", function() {
         }
 
         var selfClosingButtons = document.getElementsByClassName( "make-self-closing" );
-        for( var i = 0; i < selfClosingButtons.length; i++ ) {
+        for( let i = 0; i < selfClosingButtons.length; i++ ) {
             selfClosingButtons[i].addEventListener( "click", function ( event ) {
                 var textArea = event.target.parentElement.previousSibling;
                 textArea.value = "<ref name=\"" + textArea.dataset.refname + "\" />";
@@ -268,7 +274,7 @@ document.addEventListener( "DOMContentLoaded", function() {
 
         // Clear event listeners, from http://stackoverflow.com/a/19470348/1757964
         savePageButton.parentNode.replaceChild( savePageButton.cloneNode( /* deep */ true ), savePageButton );
-        var savePageButton = document.getElementById( "save-page" );
+        savePageButton = document.getElementById( "save-page" );
 
         savePageButton.addEventListener( "click", function () {
             savePageButton.disabled = true;
@@ -300,6 +306,13 @@ document.addEventListener( "DOMContentLoaded", function() {
                 editProgressElement.className = "edit-progress pending";
                 editProgressElement.textContent = "Saving " + globals.currentPage + "...";
                 var editProgressContainer = document.getElementById( "save-results" );
+
+                // If this is our first edit, clear out notices & junk from save-results first
+                if( globals.numSessionEdits === 0 ) {
+                    while( editProgressContainer.firstChild ) {
+                        editProgressContainer.removeChild( editProgressContainer.firstChild );
+                    }
+                }
                 editProgressContainer.insertBefore( editProgressElement, editProgressContainer.firstChild );
 
                 nextPage();
@@ -323,18 +336,17 @@ document.addEventListener( "DOMContentLoaded", function() {
                             globals.pendingEdits--;
                             saveIndicator.textContent = globals.pendingEdits;
                             saveIndicator.className = ( globals.pendingEdits > 0 ) ? "active" : "";
+                            globals.numSessionEdits++;
                         } catch ( e ) {
-                            saveResult.innerHTML = "Error parsing server response";
+                            editProgressElement.innerHTML = "Error parsing server response!";
                             console.log(e);
                         }
 
                         setTimeout( updateCategorySize, 500 );
                         setTimeout( updateCategorySize, 1500 );
-                    } )
+                    } );
             }.bind( this ) );
         }.bind( this ) );
-
-        function enableSavePageButton () { document.getElementById( "save-page" ).disabled = false; }
 
         // Make the text areas taller and give them text listeners
         function updateTextAreasStyleAndListeners() {
@@ -388,17 +400,17 @@ document.addEventListener( "DOMContentLoaded", function() {
         getToken: function () {
             return new Promise( function ( resolve, reject ) {
                 try{
-                makeApiCall( {
-                    "action": "query",
-                    "meta": "tokens"
-                } ).then( function ( data ) {
-                    console.log(data);
-                    try {
-                        resolve( data.query.tokens.csrftoken );
-                    } catch ( e ) {
-                        reject();
-                    }
-                } );
+                    makeApiCall( {
+                        "action": "query",
+                        "meta": "tokens"
+                    } ).then( function ( data ) {
+                        console.log(data);
+                        try {
+                            resolve( data.query.tokens.csrftoken );
+                        } catch ( e ) {
+                            reject();
+                        }
+                    } );
                 }catch(e){console.log(e);}
             } );
         },
@@ -410,7 +422,7 @@ document.addEventListener( "DOMContentLoaded", function() {
                         resolve(xhr.response);
                     }
                 };
-                xhr.open( 'POST', 'http://localhost:8000/cgi-bin/relay.py', true );
+                xhr.open( "POST", "http://localhost:8000/cgi-bin/relay.py", true );
                 xhr.setRequestHeader( "Content-Type","application/x-www-form-urlencoded" );
                 var params = "token=" + encodeURIComponent( globals.editToken ) + "&text=" +
                     encodeURIComponent( newText ) + "&title=" +
@@ -426,8 +438,8 @@ document.addEventListener( "DOMContentLoaded", function() {
 
         // OAuth stuff
         doAuthorizationRedirectOld: function () {
-            var CONSUMER_TOKEN = "a38bdea381b2d3cb27c54c9224de4013";
-            var SECRET_TOKEN = "93e2426dda047c6ff646dd7d0897be3101d7522e";
+            var CONSUMER_TOKEN = "";
+            // var SECRET_TOKEN = "";
 
             var xhr = new XMLHttpRequest();
             xhr.onreadystatechange = function() {
@@ -454,14 +466,13 @@ document.addEventListener( "DOMContentLoaded", function() {
                     console.log(xhr.response);
                 }
             };
-            xhr.open( 'GET', 'http://localhost:8000/cgi-bin/oauth.py', true );
+            xhr.open( "GET", "http://localhost:8000/cgi-bin/oauth.py", true );
             xhr.setRequestHeader( "Content-Type","application/x-www-form-urlencoded" );
             var params = "";
             try{
                 xhr.send( params );
             } catch( e ) {
                 console.log(e);
-                reject(e);
             }
         },
     };
@@ -517,7 +528,7 @@ document.addEventListener( "DOMContentLoaded", function() {
     }
 
     const API_ROOT = "https://en.wikipedia.org/w/api.php",
-          API_SUFFIX = "&format=json&callback=?&continue=";
+        API_SUFFIX = "&format=json&callback=?&continue=";
     function makeApiUrl( params ) {
         var paramString = Object.keys( params ).map( function ( key ) {
             return encodeURIComponent( key ) + "=" + encodeURIComponent( params[key] );
@@ -533,33 +544,33 @@ document.addEventListener( "DOMContentLoaded", function() {
     var jsonpUnique = 0;
     function loadJsonp(url) {
         var unique = jsonpUnique++;
-        return new Promise( function ( resolve, reject ) {
+        return new Promise( function ( resolve ) {
             var name = "_jsonp_" + unique;
             if (url.match(/\?/)) url += "&callback="+name;
             else url += "?callback="+name;
-            var script = document.createElement('script');
-            script.type = 'text/javascript';
+            var script = document.createElement("script");
+            script.type = "text/javascript";
             script.src = url;
             window[name] = function(data) {
                 resolve(data);
-                document.getElementsByTagName('head')[0].removeChild(script);
+                document.getElementsByTagName("head")[0].removeChild(script);
                 script = null;
                 delete window[name];
             };
-            document.getElementsByTagName('head')[0].appendChild(script);
+            document.getElementsByTagName("head")[0].appendChild(script);
         } );
     }
 
     // From http://stackoverflow.com/a/12034334/1757964
     var entityMap = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-        '/': '&#x2F;',
-        '`': '&#x60;',
-        '=': '&#x3D;'
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;",
+        "/": "&#x2F;",
+        "`": "&#x60;",
+        "=": "&#x3D;"
     };
 
     function escapeHtml (string) {
