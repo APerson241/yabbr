@@ -151,6 +151,13 @@ document.addEventListener( "DOMContentLoaded", function() {
         document.getElementById( "edit-panel" ).innerHTML = "";
         var listElement = document.createElement( "ul" );
 
+        /**
+         * A warning with this function: it starts a span element but doesn't
+         * close it, since we still might put extra stuff in afterwards, such
+         * as the self-close button or duplicate warnings. Why can't we just
+         * close it and use appendChild? Because we're working with HTML
+         * strings, not actual DOM objects (like DocumentFragment).
+         */
         function makeRefListItemHtml ( refname, refnum, firstTextarea ) {
             return "<span class='vertical-align'><textarea class='mw-ui-input" +
                 ( firstTextarea ? "" : " has-button" ) + "' data-refname='" +
@@ -166,8 +173,24 @@ document.addEventListener( "DOMContentLoaded", function() {
             var ourDupeRefs = dupeRefs[dupeRefName];
             var firstTextarea = true;
 
+            // We do duplicate checks at this point because pruning is done by now
+
             // Holds full texts for duplicate checking on those
             var allMatchTexts = [];
+
+            // Holds URLs only for duplicate checking
+            var urls = [];
+
+            // Extracts the URL from a ref
+            var urlRe = /\|\s*url\s*=\s*(.+?)(?:\}\}|\|)/;
+            function urlFromRef( ref ) {
+                var match = urlRe.exec( ref );
+                if( match ) {
+                    return match[1];
+                } else {
+                    return null;
+                }
+            }
 
             for( var i = 0; i < ourDupeRefs.length; i++ ) {
                 if( ourDupeRefs[i].selfclosing ) {
@@ -182,27 +205,44 @@ document.addEventListener( "DOMContentLoaded", function() {
                         " - <a class='display-self-closing' href='#'>show</a>)</li>";
                     i = j - 1;
                 } else {
+                    var url;
+
                     newInnerElementHtml += "<li>";
                     newInnerElementHtml += makeRefListItemHtml( dupeRefName, i, firstTextarea );
 
                     if( firstTextarea ) {
                         firstTextarea = false;
 
+                        var ourRef = ourDupeRefs[i].ref;
+
                         // We always need to check subsequent full texts against the first one
-                        allMatchTexts.push( ourDupeRefs[i].ref );
+                        allMatchTexts.push( ourRef );
+
+                        // Also push the URL (if it exists)
+                        if( url = urlFromRef( ourRef ), url ) urls.push( url );
                     } else {
                         newInnerElementHtml += "<div class='self-closing-container'>";
                         var spacelessRef = ourDupeRefs[i].ref.replace( /\s/g, "" );
-                        var isDuplicate = allMatchTexts.indexOf( spacelessRef ) !== -1;
+                        var duplicateFullText = allMatchTexts.indexOf( spacelessRef ) !== -1;
+
                         newInnerElementHtml += "<button class='mw-ui-button " +
-                            ( isDuplicate ? "mw-ui-progressive " : "" ) + "make-self-closing'>" +
+                            ( duplicateFullText ? "mw-ui-progressive " : "" ) + "make-self-closing'>" +
                             "Self-close</button>";
-                        if( isDuplicate ) {
+                        if( duplicateFullText ) {
                             newInnerElementHtml += "<br /><span class='duplicate-notice'>Duplicated!</span>";
                         } else {
 
                             // Add this ref to the list so we can check future refs against it
                             allMatchTexts.push( spacelessRef );
+
+                            // Now check for duplicate URLs
+                            if( url = urlFromRef( ourRef ), url ) {
+                                if( urls.indexOf( url ) === -1 ) {
+                                    urls.push( url );
+                                } else {
+                                    newInnerElementHtml += "<br /><span class='duplicate-notice'>Duplicate URL</span>";
+                                }
+                            }
                         }
                         newInnerElementHtml += "</div>";
                     }
@@ -322,6 +362,8 @@ document.addEventListener( "DOMContentLoaded", function() {
                 apiFunctions.savePage( globals.currentPage, pageText,
                                        globals.editToken, "Fixing duplicate references with YABBR" )
                     .then( function ( response ) {
+                        globals.pendingEdits--;
+                        globals.numSessionEdits++;
                         try {
                             response = JSON.parse( response );
                             var articleTitle = response["edit"]["title"];
@@ -333,10 +375,8 @@ document.addEventListener( "DOMContentLoaded", function() {
                             } else {
                                 editProgressElement.className = "edit-progress failure";
                             }
-                            globals.pendingEdits--;
                             saveIndicator.textContent = globals.pendingEdits;
                             saveIndicator.className = ( globals.pendingEdits > 0 ) ? "active" : "";
-                            globals.numSessionEdits++;
                         } catch ( e ) {
                             editProgressElement.innerHTML = "Error parsing server response!";
                             console.log(e);
