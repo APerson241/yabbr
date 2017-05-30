@@ -64,10 +64,19 @@ document.addEventListener( "DOMContentLoaded", function() {
         function handleNextPage( nextPage ) {
             globals.currentPage = nextPage;
             var pageNameElement = document.getElementById( "current-page-name" );
+
+            // Clear "Current page" stuff
             while( pageNameElement.firstChild ) {
                 pageNameElement.removeChild( pageNameElement.firstChild );
             }
+
             pageNameElement.appendChild( makeWikilink( globals.currentPage ) );
+
+            // Add a link to the current page's history
+            pageNameElement.innerHTML += " (<a href='https://en.wikipedia.or" +
+                "g/w/index.php?title=" + globals.currentPage + "&action=hist" +
+                "ory'>hist</a>)";
+
             apiFunctions.getPageText( globals.currentPage ).then( function ( pageText ) {
                 var loadStatus = loadDupeRefNamesView( pageText );
                 if( !loadStatus && document.getElementById( "skip-unfixable" ).checked ) {
