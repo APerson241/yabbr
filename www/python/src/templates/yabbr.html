@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block head %}
+<script src="https://tools-static.wmflabs.org/yabbr/script.js"></script>
+{% endblock %}
+
+{% block body %}
+<p>Logged in as {{ username }} (<a href="logout">logout</a>). [<span id="options-collapse" class="collapse">show options</span>]</p>
+<div id="options" style="display: none">
+  <input type="checkbox" id="skip-unfixable" checked /><label for="skip-unfixable">Skip unfixable pages automatically</label>
+</div>
+<div id="select-backlog">
+  Backlog:
+  <select>
+    <option value="Category:Pages with duplicate reference names">Pages with duplicate reference names</option>
+  </select>
+  <span id="backlog-size"></span>
+</div>
+<div id="page-controls">
+  <span id="current-page">
+    Current page:
+    <span id="current-page-name"></span>
+  </span>
+  <div id="control-buttons">
+    <button id="skip-page" class="mw-ui-button">Skip this page</button>
+    <button id="save-page" class="mw-ui-button mw-ui-progressive" disabled>Save page</button>
+    <span id="save-indicator">0</span>
+  </div>
+</div>
+<div id="clear-both"></div>
+<div id="save-results" style="display: none;">
+  <p class="notice">When you save a page, progress/results will appear here.</p>
+</div>
+<div id="edit-panel"></div>
+<pre id="page-text"></pre>
+{% endblock %}
