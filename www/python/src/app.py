@@ -2,6 +2,8 @@ import flask
 import os
 import configparser
 import mwoauth
+from requests_oauthlib import OAuth1
+import requests
 
 CONFIG_FILENAME = "config.ini"
 
@@ -24,6 +26,42 @@ def index():
   username = flask.session.get("username", None)
   return flask.render_template(
     "index.html", username=username, greeting=greeting)
+
+@app.route("/edit")
+def edit():
+  username = flask.session.get("username", None)
+  if not username:
+    return flask.render_template("index.html")
+
+  # We'll need this auth1 param for all of our requests 
+  access_token_dict = flask.session.get("access_token")
+  auth1 = OAuth1(consumer_token.key, consumer_token.secret, access_token_dict["key"], access_token_dict["secret"])
+
+  edit_token = flask.session.get("edit_token", None)
+  if not edit_token:
+    query_params = {
+      'action': "query",
+      'meta': 'tokens',
+      'format': "json"
+    }
+    response = requests.get("https://en.wikipedia.org/w/api.php", params=query_params, auth=auth1)
+    print(response.json())
+    edit_token = response.json()["query"]["tokens"]["csrftoken"]
+    flask.session["edit_token"] = edit_token 
+
+  query_params = {
+    "action": "edit",
+    "title": "User:" + username + "/sandbox",
+    "appendtext": "\n\nHello from YABBR test! ~~~~",
+    "summary": "Adding a test message from YABBR",
+    "format": "json"
+  }
+  query_data = {
+    "token": edit_token
+  }
+  response = requests.post("https://en.wikipedia.org/w/api.php", params=query_params, data=query_data, auth=auth1)
+  print(response.json())
+  return flask.render_template("edit.html", text=response.json())
 
 @app.route("/login")
 def login():
