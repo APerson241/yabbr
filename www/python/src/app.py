@@ -22,15 +22,16 @@ consumer_token = mwoauth.ConsumerToken(
 
 @app.route('/')
 def index():
-  greeting = app.config["GREETING"]
   username = flask.session.get("username", None)
-  return flask.render_template(
-    "index.html", username=username, greeting=greeting)
+  if username:
+    return flask.render_template("yabbr.html", username=username)
+  else:
+    return flask.render_template("index.html")
 
-@app.route("/edit")
+@app.route("/edit", methods=["GET", "POST"])
 def edit():
   username = flask.session.get("username", None)
-  if not username:
+  if not username or flask.request.method == "GET":
     return flask.render_template("index.html")
 
   # We'll need this auth1 param for all of our requests 
@@ -49,19 +50,24 @@ def edit():
     edit_token = response.json()["query"]["tokens"]["csrftoken"]
     flask.session["edit_token"] = edit_token 
 
+  text = flask.request.form.get("text", None)
+  title = flask.request.form.get("title", None)
+  summary = flask.request.form.get("summary", None)
+  if not text or not title or not summary:
+    response = {"error": "The following required parameters weren't supplied: " + ", ".join([x[0] for x in [("text", text), ("title", title), ("summary", summary)] if not x[1]])}
+    return flask.jsonify(response)
   query_params = {
     "action": "edit",
-    "title": "User:" + username + "/sandbox",
-    "appendtext": "\n\nHello from YABBR test! ~~~~",
-    "summary": "Adding a test message from YABBR",
+    "title": title,
+    "summary": summary,
     "format": "json"
   }
   query_data = {
-    "token": edit_token
+    "token": edit_token,
+    "text": text
   }
   response = requests.post("https://en.wikipedia.org/w/api.php", params=query_params, data=query_data, auth=auth1)
-  print(response.json())
-  return flask.render_template("edit.html", text=response.json())
+  return flask.jsonify(response.json())
 
 @app.route("/login")
 def login():
