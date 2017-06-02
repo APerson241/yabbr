@@ -6,6 +6,7 @@
   <body>
     {% if username %}
     <p>Hello {{ username }}!</p>
+    <p><a href="{{ url_for('edit') }}">Append some text to your sandbox</a></p>
     <p><a href="{{ url_for('logout') }}">logout</a></p>
     {% else %}
     <p>{{ greeting }}</p>
