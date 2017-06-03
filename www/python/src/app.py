@@ -96,6 +96,21 @@ def oauth_callback():
     flask.session["access_token"] = dict(zip(access_token._fields, access_token))
     flask.session["username"] = identity["username"]
 
+  # Check for at least 2K edits
+  query_params = {
+    "action": "query",
+    "list": "users",
+    "ususers": identity["username"],
+    "usprop": "editcount",
+    "format": "json"
+  }
+  response = requests.get("https://en.wikipedia.org/w/api.php", params=query_params)
+  print(response.content)
+  if response.json()["query"]["users"][0]["editcount"] < 2000:
+    flask.flash("Your edit count needs to be at least 2000 to use this tool.")
+    flask.session.clear()
+    return flask.render_template("error.html", text="Your edit count needs to be at least 2000 to use this tool!")
+
   return flask.redirect(flask.url_for("index"))
 
 @app.route('/logout')
