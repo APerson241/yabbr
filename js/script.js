@@ -98,7 +98,8 @@ document.addEventListener( "DOMContentLoaded", function() {
         apiFunctions.getCategorySize( globals.currentCat ).then( function ( count ) {
             var backlogSize = document.getElementById( "backlog-size" );
             backlogSize.innerHTML = "(Size: ";
-            backlogSize.appendChild( makeWikilink( globals.currentCat, count.toLocaleString() + " pages" ) );
+            backlogSize.appendChild( makeWikilink( globals.currentCat,
+                count.toLocaleString() + " pages" ) );
             backlogSize.innerHTML += ")";
         } );
     }
@@ -118,15 +119,18 @@ document.addEventListener( "DOMContentLoaded", function() {
             var refMatchText = refMatch[0];
             var refMatchStart = refMatch.index;
             var refMatchEnd = refMatch.index + refMatchText.length;
-            var match = OPEN_TAG.exec( refMatchText );
-            if( match && match[1] && match[1].trim().length ) {
+            var tagMatch = OPEN_TAG.exec( refMatchText );
+            if( tagMatch && tagMatch[1] && tagMatch[1].trim().length ) {
+                var context0Start = Math.max( 0, refMatchStart - CONTEXT_LENGTH );
+                var context1End = Math.min( refMatchEnd + CONTEXT_LENGTH,
+                    pageText.length - 1 );
                 refs.push( {
                     "ref": refMatchText,
-                    "name": match[1].trim(),
-                    "selfclosing": !!match[2],
+                    "name": tagMatch[1].trim(),
+                    "selfclosing": !!tagMatch[2],
                     "context": [
-                        pageText.substring( Math.max( 0, refMatchStart - CONTEXT_LENGTH ), refMatchStart ),
-                        pageText.substring( refMatchEnd, Math.min( refMatchEnd + CONTEXT_LENGTH, pageText.length - 1 ) )
+                        pageText.substring( context0Start, refMatchStart ),
+                        pageText.substring( refMatchEnd, context1End )
                     ]
                 } );
             }
@@ -148,13 +152,6 @@ document.addEventListener( "DOMContentLoaded", function() {
         if( Object.keys( dupeRefs ).length === 0 ) {
             document.getElementById( "edit-panel" ).innerHTML = "<div class='error'>The duplicate reference problem on this page isn't fixable! Possible causes: <ul><li>The parser couldn't find the duplicate references</li><li>One of the duplicate references is inside a template, so we can't modify it</li></ul></div>";
             return false;
-        }
-
-        // Flag references with duplicated texts, not just names
-        var matchTexts = [];
-        var hasDuplicateMatchText = matchTexts.indexOf( refMatchText ) !== -1;
-        if( !hasDuplicateMatchText ) {
-            matchTexts.push( refMatchText );
         }
 
         document.getElementById( "edit-panel" ).innerHTML = "";
@@ -184,7 +181,7 @@ document.addEventListener( "DOMContentLoaded", function() {
 
             // We do duplicate checks at this point because pruning is done by now
 
-            // Holds full texts for duplicate checking on those
+            // Holds full texts for duplicate checking on those (w/o tags)
             var allMatchTexts = [];
 
             // Holds URLs only for duplicate checking
@@ -245,7 +242,7 @@ document.addEventListener( "DOMContentLoaded", function() {
                             allMatchTexts.push( spacelessRef );
 
                             // Now check for duplicate URLs
-                            if( url = urlFromRef( ourRef ), url ) {
+                            if( url = urlFromRef( ourDupeRefs[i].ref ), url ) {
                                 if( urls.indexOf( url ) === -1 ) {
                                     urls.push( url );
                                 } else {

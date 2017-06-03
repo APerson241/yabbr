@@ -1,7 +1,8 @@
-module.exports = {
+{
     "env": {
         "browser": true,
-        "es6": true
+        "es6": true,
+        "jquery": false
     },
     "extends": "eslint:recommended",
     "rules": {
@@ -20,7 +21,6 @@ module.exports = {
         "semi": [
             "error",
             "always"
-        ],
-        "no-console": "off"
+        ]
     }
-};
+}
