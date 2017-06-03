@@ -440,11 +440,6 @@ document.addEventListener( "DOMContentLoaded", function() {
                 xhr.setRequestHeader( "Content-Type","application/x-www-form-urlencoded" );
                 var params = "text=" + encodeURIComponent( newText ) + "&title=" +
                     encodeURIComponent( pageName ) + "&summary=" + editSummary;
-                var paramsObject = {
-                    text: newText,
-                    title: pageName,
-                    summary: editSummary
-                };
                 try{
                     xhr.send( params );
                 } catch( e ) {
