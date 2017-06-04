@@ -196,7 +196,8 @@ document.addEventListener( "DOMContentLoaded", function() {
                         " - <a class='display-self-closing' href='#'>show</a>)</li>";
                     i = j - 1;
                 } else {
-                    var url;
+                    var ourRef = ourDupeRefs[i].ref;
+                    var url = urlFromRef( ourRef );
 
                     newInnerElementHtml += "<li>";
                     newInnerElementHtml += makeRefListItemHtml( dupeRefName, i, firstTextarea );
@@ -204,13 +205,12 @@ document.addEventListener( "DOMContentLoaded", function() {
                     if( firstTextarea ) {
                         firstTextarea = false;
 
-                        var ourRef = ourDupeRefs[i].ref;
 
                         // We always need to check subsequent full texts against the first one
                         allMatchTexts.push( ourRef );
 
                         // Also push the URL (if it exists)
-                        if( url = urlFromRef( ourRef ), url ) urls.push( url );
+                        if( url ) urls.push( url );
                     } else {
                         newInnerElementHtml += "<div class='self-closing-container'>";
                         var spacelessRef = ourDupeRefs[i].ref.replace( /\s/g, "" );
@@ -227,7 +227,7 @@ document.addEventListener( "DOMContentLoaded", function() {
                             allMatchTexts.push( spacelessRef );
 
                             // Now check for duplicate URLs
-                            if( url = urlFromRef( ourRef ), url ) {
+                            if( url ) {
                                 if( urls.indexOf( url ) === -1 ) {
                                     urls.push( url );
                                 } else {
