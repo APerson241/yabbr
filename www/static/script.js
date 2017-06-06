@@ -96,12 +96,16 @@ document.addEventListener( "DOMContentLoaded", function() {
         var OPEN_TAG = new RegExp( "^<ref\\s+name\\s*=\\s*(?:\"|\')?([^>\\/\\\\\"\']+)(?:\"|\')?\\s*(\\/?)>" );
         var CONTEXT_LENGTH = 100;
         var refs = [];
+        var exitOnSelfClosing = document.getElementById( "skip-selfclosing" ).checked;
         while( refMatch = refElementRe.exec( pageText ), refMatch ) {
             var refMatchText = refMatch[0];
             var refMatchStart = refMatch.index;
             var refMatchEnd = refMatch.index + refMatchText.length;
             var match = OPEN_TAG.exec( refMatchText );
             if( match && match[1] && match[1].trim().length ) {
+                if( exitOnSelfClosing && !!match[2] ) {
+                    return false;
+                }
                 refs.push( {
                     "ref": refMatchText,
                     "name": match[1].trim(),
@@ -173,11 +177,12 @@ document.addEventListener( "DOMContentLoaded", function() {
             var urls = [];
 
             // Extracts the URL from a ref
-            var urlRe = /\|\s*url\s*=\s*(.+?)(?:\}\}|\|)/;
+            var urlRe = /\|\s*url\s*=\s*(.+?)\s*(?:\}\}|\|)/;
             function urlFromRef( ref ) {
                 var match = urlRe.exec( ref );
                 if( match ) {
-                    return match[1];
+                    var url = match[1].trim();
+                    return url;
                 } else {
                     return null;
                 }
@@ -204,7 +209,6 @@ document.addEventListener( "DOMContentLoaded", function() {
 
                     if( firstTextarea ) {
                         firstTextarea = false;
-
 
                         // We always need to check subsequent full texts against the first one
                         allMatchTexts.push( ourRef );
@@ -369,6 +373,7 @@ document.addEventListener( "DOMContentLoaded", function() {
                             saveIndicator.className = ( globals.pendingEdits > 0 ) ? "active" : "";
                         } catch ( e ) {
                             editProgressElement.innerHTML = "Error parsing server response!";
+                            editProgressElement.className = "edit-progress failure";
                             console.log(e);
                             console.log(response);
                         }
