@@ -265,7 +265,7 @@ document.addEventListener( "DOMContentLoaded", function() {
                     refname = prevTextarea.getAttribute( "data-refname" );
                 }
 
-                if( !refname && listItem.nextSibling ) {
+                if( listItem.nextSibling ) {
                     var nextTextarea = listItem.nextSibling.childNodes[0].childNodes[0];
                     endingRefnum = parseInt( nextTextarea.getAttribute( "data-refnum" ) ) - 1;
                     refname = nextTextarea.getAttribute( "data-refname" );
@@ -362,7 +362,7 @@ document.addEventListener( "DOMContentLoaded", function() {
                             response = JSON.parse( response );
                             var articleTitle = response["edit"]["title"];
                             var result = response["edit"]["result"];
-                            editProgressElement.innerHTML = "Edit to <a href='https://en.wikipedia.org/wiki/" + encodeURIComponent( articleTitle ) + "'>" + articleTitle + "</a> &rarr; " + result + "</span>";
+                            editProgressElement.innerHTML = "Edit to <a href='https://en.wikipedia.org/wiki/" + encodeURIComponent( articleTitle ) + "'>" + articleTitle + "</a> &rarr; " + result;
                             if( response["edit"]["result"] === "Success" ) {
                                 editProgressElement.innerHTML += " (<a href='https://en.wikipedia.org/w/index.php?title=" + articleTitle + "&diff=prev&oldid=" + response["edit"]["newrevid"] + "'>diff</a>)";
                                 editProgressElement.className = "edit-progress success";
@@ -481,7 +481,7 @@ document.addEventListener( "DOMContentLoaded", function() {
                     } ).then( function ( data ) {
                         try {
                             this.rawMembers = data.query.categorymembers;
-                            this.index = 1;
+                            this.index = 0;
                             if( this.rawMembers.length ) {
                                 resolve( this.rawMembers[ this.index++ ].title );
                             } else {
