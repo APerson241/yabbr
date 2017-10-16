@@ -80,6 +80,10 @@ nav {
     float: right;
 }
 
+#save-page {
+    margin-left: 0.2em;
+}
+
 #save-indicator {
     padding: .5em 1em;
     border-radius: 2px;
@@ -138,6 +142,20 @@ nav {
     font-family: monospace;
 }
 
+.errorbox {
+    border: 1px solid;
+    padding: .5em 1em;
+    margin-bottom: 1em;
+    display: -moz-inline-block;
+    display: inline-block;
+    zoom: 1;
+    display: inline;
+
+    color: #c00;
+    border-color: #fac5c5;
+    background-color: #fae3e3;
+}
+
 #edit-panel ul {
     margin: 0.25em 0;
 }
@@ -179,4 +197,29 @@ nav {
 #edit-panel span.duplicate-notice {
     font-size: 90%;
     font-style: italic;
+}
+
+/* Skip dropdown */
+.indicator-down {
+    min-width: 12px;
+    width: 0.9375em;
+    min-height: 12px;
+    background-size: contain;
+    background-position: center center;
+    display: inline-block;
+
+    background-image: url('thttps://doc.wikimedia.org/oojs-ui/master/demos/dist/themes/wikimediaui/images/indicators/arrow-down.png');
+    background-image: -webkit-linear-gradient(transparent, transparent), url('https://doc.wikimedia.org/oojs-ui/master/demos/dist/themes/wikimediaui/images/indicators/arrow-down.svg');
+    background-image: linear-gradient(transparent, transparent), url('https://doc.wikimedia.org/oojs-ui/master/demos/dist/themes/wikimediaui/images/indicators/arrow-down.svg');
+    background-image: -o-linear-gradient(transparent, transparent), url('https://doc.wikimedia.org/oojs-ui/master/demos/dist/themes/wikimediaui/images/indicators/arrow-down.png');
+}
+
+#skip-page-dropdown-container {
+    display: none;
+    position: fixed;
+    float: right;
+}
+
+#skip-page-dropdown-container.show {
+    display: block;
 }

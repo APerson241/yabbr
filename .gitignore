@@ -1,3 +1,9 @@
+# Bash stuff
+.bash_*
+
+# Config
+config.ini
+
 # Emacs
 *~
 
