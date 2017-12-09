@@ -55,8 +55,9 @@ document.addEventListener( "DOMContentLoaded", function() {
 
             // Add a link to the current page's history
             pageNameElement.innerHTML += " (<a href='https://en.wikipedia.or" +
-                "g/w/index.php?title=" + globals.currentPage + "&action=hist" +
-                "ory'>hist</a>)";
+                "g/w/index.php?title=" +
+                encodeURIComponent( globals.currentPage ).replace( "'", "%27" ) +
+                "&action=history'>hist</a>)";
 
             apiFunctions.getPageText( globals.currentPage ).then( function ( pageText ) {
                 var loadStatus = globals.currentView( pageText );
@@ -335,55 +336,8 @@ document.addEventListener( "DOMContentLoaded", function() {
                         pageText = pageText.replace( originalText, newText );
                     } );
 
-                    var saveIndicator = document.getElementById( "save-indicator" );
-                    globals.pendingEdits++;
-                    saveIndicator.textContent = globals.pendingEdits;
-                    saveIndicator.className = "active";
-
-                    var editProgressElement = document.createElement( "span" );
-                    editProgressElement.className = "edit-progress pending";
-                    editProgressElement.textContent = "Saving " + globals.currentPage + "...";
-                    var editProgressContainer = document.getElementById( "save-results" );
-
-                    // If this is our first edit, clear out notices & junk from save-results first
-                    if( globals.numSessionEdits === 0 ) {
-                        while( editProgressContainer.firstChild ) {
-                            editProgressContainer.removeChild( editProgressContainer.firstChild );
-                        }
-                    }
-                    editProgressContainer.insertBefore( editProgressElement, editProgressContainer.firstChild );
-
-                    nextPage();
-                    savePageButton.innerHTML = "Save page";
-
-                    // Save our changes to the page text
-                    apiFunctions.savePage( globals.currentPage, pageText, "Fixing duplicate references with YABBR" )
-                        .then( function ( response ) {
-                            globals.pendingEdits--;
-                            globals.numSessionEdits++;
-                            try {
-                                response = JSON.parse( response );
-                                var articleTitle = response["edit"]["title"];
-                                var result = response["edit"]["result"];
-                                editProgressElement.innerHTML = "Edit to <a href='https://en.wikipedia.org/wiki/" + encodeURIComponent( articleTitle ) + "'>" + articleTitle + "</a> &rarr; " + result;
-                                if( response["edit"]["result"] === "Success" ) {
-                                    editProgressElement.innerHTML += " (<a href='https://en.wikipedia.org/w/index.php?title=" + articleTitle + "&diff=prev&oldid=" + response["edit"]["newrevid"] + "'>diff</a>)";
-                                    editProgressElement.className = "edit-progress success";
-                                } else {
-                                    editProgressElement.className = "edit-progress failure";
-                                }
-                                saveIndicator.textContent = globals.pendingEdits;
-                                saveIndicator.className = ( globals.pendingEdits > 0 ) ? "active" : "";
-                            } catch ( e ) {
-                                editProgressElement.innerHTML = "Error parsing server response!";
-                                editProgressElement.className = "edit-progress failure";
-                                console.log(e);
-                                console.log(response);
-                            }
-
-                            setTimeout( updateCategorySize, 500 );
-                            setTimeout( updateCategorySize, 1500 );
-                        } );
+                    savePageWithInterfaceUpdates( globals.currentPage, pageText,
+                            "Fixing duplicate references with YABBR");
                 }.bind( this ) );
             }.bind( this ) );
 
@@ -408,7 +362,7 @@ document.addEventListener( "DOMContentLoaded", function() {
             editPanelEl.innerHTML = "";
 
             // Figure out where this page redirects to, and display it
-            var REDIR_REGEX = /#REDIRECT \[\[(.+)\]\]/;
+            var REDIR_REGEX = /#[Rr][Ee][Dd][Ii][Rr][Ee][Cc][Tt] \[\[(.+)\]\]/;
             var redirMatch = REDIR_REGEX.exec( pageText );
             if( redirMatch === null ) {
                 
@@ -418,7 +372,37 @@ document.addEventListener( "DOMContentLoaded", function() {
 
             editPanelEl.innerHTML += "<span class='redir-target'>Redirects to " +
                 redirMatch[1] + "</span>";
-            document.getElementById( "save-page" ).disabled = true;
+
+            // Autofill with current tag template, if any
+            var TAG_TEMPLATE = /{{(?:Rcat|Redirect category) shell(?:|[\s\S]*)?}}/i;
+            var tagMatch = TAG_TEMPLATE.exec( pageText );
+            var oldTag = tagMatch ? tagMatch[0] : "";
+            editPanelEl.innerHTML += "<br /><input type='text' id='tag-text' " +
+                    "value='" + oldTag + "' /><br />";
+            var INDEX_LINK = "<a href='https://en.wikipedia.org/wiki/Templ" +
+                    "ate:R_template_index' title='R template index on the" +
+                    " English Wikipedia'>Index of R templates</a>";
+            editPanelEl.innerHTML += INDEX_LINK;
+            var savePageButton = document.getElementById( "save-page" );
+            document.getElementById( "tag-text" ).addEventListener( "input",
+                    function () { savePageButton.disabled = false; } );
+            savePageButton.disabled = true;
+
+            // Clear event listeners, from http://stackoverflow.com/a/19470348/1757964
+            savePageButton.parentNode.replaceChild( savePageButton.cloneNode( /* deep */ true ), savePageButton );
+            savePageButton = document.getElementById( "save-page" );
+
+            savePageButton.addEventListener( "click", function () {
+                savePageButton.disabled = true;
+                savePageButton.innerHTML = "Saving...";
+                apiFunctions.getPageText( globals.currentPage ).then( function ( pageText ) {
+                    var newTag = document.getElementById( "tag-text" ).value;
+                    pageText = pageText.replace( oldTag, newTag );
+
+                    savePageWithInterfaceUpdates( globals.currentPage, pageText,
+                            "Categorizing miscellaneous redirect with YABBR");
+                }.bind( this ) );
+            }.bind( this ) );
             return true;
         }
     };
@@ -439,6 +423,74 @@ document.addEventListener( "DOMContentLoaded", function() {
         globals.iterator = new CategoryIterator( globals.currentCat );
         nextPage();
     } );
+
+    /**
+     * Saves a page, while changing the interface. Ideally, the calling
+     * method doesn't have any code that alters the HTML on the page at
+     * all, with two exceptions: the caller is responsible for disabling
+     * the save button and changing its text at the beginning of the
+     * handler. This function will take care of everything else,
+     * including manipulating the #save-results div.
+     */
+    function savePageWithInterfaceUpdates( pageName, newText, summary ) {
+        var saveIndicator = document.getElementById( "save-indicator" );
+        globals.pendingEdits++;
+        saveIndicator.textContent = globals.pendingEdits;
+        saveIndicator.className = "active";
+
+        var editProgressElement = document.createElement( "span" );
+        editProgressElement.className = "edit-progress pending";
+        editProgressElement.textContent = "Saving " + pageName + "...";
+        var editProgressContainer = document.getElementById( "save-results" );
+
+        // If this is our first edit, clear out notices & junk from save-results first
+        if( globals.numSessionEdits === 0 ) {
+            while( editProgressContainer.firstChild.id !== "save-statistics" ) {
+                editProgressContainer.removeChild( editProgressContainer.firstChild );
+            }
+        }
+        editProgressContainer.insertBefore( editProgressElement, editProgressContainer.firstChild );
+
+        nextPage();
+        savePageButton = document.getElementById( "save-page" );
+        savePageButton.innerHTML = "Save page";
+
+        // Save our changes to the page text
+        apiFunctions.savePage( pageName, newText, summary )
+            .then( function ( response ) {
+                globals.pendingEdits--;
+                globals.numSessionEdits++;
+                try {
+                    response = JSON.parse( response );
+                    var articleTitle = response["edit"]["title"];
+                    var result = response["edit"]["result"];
+                    editProgressElement.innerHTML = "Edit to ";
+                    editProgressElement.appendChild( makeWikilink( articleTitle ) );
+                    editProgressElement.lastChild.href += "?redirect=no";
+                    editProgressElement.innerHTML += " &rarr; " + result;
+                    if( response["edit"]["result"] === "Success" ) {
+                        editProgressElement.innerHTML += " (<a href='https://en.wikipedia.org/w/index.php?title=" + articleTitle.replace( "'", "%27" ) + "&diff=prev&oldid=" + response["edit"]["newrevid"] + "'>diff</a>)";
+                        editProgressElement.className = "edit-progress success";
+                    } else {
+                        editProgressElement.className = "edit-progress failure";
+                    }
+                    saveIndicator.textContent = globals.pendingEdits;
+                    saveIndicator.className = ( globals.pendingEdits > 0 ) ? "active" : "";
+                    var saveCounter = document.getElementById( "save-statistics-counter" );
+                    saveCounter.innerHTML = globals.numSessionEdits + " edit" +
+                        ( globals.numSessionEdits === 1 ? "" : "s" );
+                } catch ( e ) {
+                    editProgressElement.innerHTML = "Error parsing server response!";
+                    editProgressElement.className = "edit-progress failure";
+                    console.log(e);
+                    console.log(response);
+                }
+
+                setTimeout( updateCategorySize, 500 );
+                setTimeout( updateCategorySize, 1500 );
+            } );
+    }
+
 
     var apiFunctions = {
         getCategorySize: function ( categoryName ) {
@@ -567,7 +619,7 @@ document.addEventListener( "DOMContentLoaded", function() {
     function makeWikilink( pageName, linkLabel ) {
         linkLabel = linkLabel || pageName;
         var link = document.createElement( "a" );
-        link.href = "https://en.wikipedia.org/wiki/" + pageName;
+        link.href = "https://en.wikipedia.org/wiki/" + encodeURIComponent( pageName );
         link.appendChild( document.createTextNode( linkLabel ) );
         link.title = pageName + " on the English Wikipedia";
         return link;

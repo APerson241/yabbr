@@ -118,6 +118,7 @@ nav {
 #save-results {
     font-size: 90%;
     margin-top: 0.25em;
+    line-height: 2;
 }
 
 .edit-progress {
@@ -174,6 +175,8 @@ nav {
     font-family: monospace;
 }
 
+/* Dupe ref names styles */
+
 #edit-panel .display-self-closing {
     font-style: italic;
 }
@@ -197,6 +200,14 @@ nav {
 #edit-panel span.duplicate-notice {
     font-size: 90%;
     font-style: italic;
+}
+
+/* Miscellaneous redirects styles */
+#edit-panel #tag-text {
+    padding: 0.3em;
+    font-size: large;
+    font-family: monospace;
+    width: 40em;
 }
 
 /* Skip dropdown */
